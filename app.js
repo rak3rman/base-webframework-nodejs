@@ -61,6 +61,8 @@ app.use(bodyParser.json());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({extended: false}));
+
+//Import Static Files to Webpages
 app.use('/static', express.static(process.cwd() + '/static'));
 
 //End of Initialize Packages and Routers - - - - - - - -
