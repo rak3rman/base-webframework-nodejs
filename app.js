@@ -42,7 +42,7 @@ if (console_port === undefined) {
 const app = express();
 app.set('view engine', 'ejs');
 
-//Initialize Exit Options
+//Initialize Exit Options (for Testing Environments)
 let exitOpt = require('./config/exitOpt.js');
 setTimeout(exitOpt.testCheck, 3000);
 
