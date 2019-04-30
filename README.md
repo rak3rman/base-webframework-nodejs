@@ -25,6 +25,7 @@ This project is a base web framework to run a web application using express thro
 --LICENSE
 --README.md
 --.travis.yml
+--.gitignore
 ```
 
 ## Install and Setup
