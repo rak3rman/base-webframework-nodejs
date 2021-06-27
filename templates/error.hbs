@@ -14,9 +14,9 @@
 </head>
 <body>
 <div style="margin: 18pt">
-    <h1><strong><%= error.statusCode %></strong> Looks like we have a problem...</h1>
-    <p class="lead">Error Log:</p>
-    <p><%= error.message %></p>
+    <p class="lead"><strong>{{ error_code }}</strong> {{ title }}</p>
+    <p>{{ desc_1 }}</p>
+    <p>{{ desc_2 }}</p>
 </div>
 <!-- jQuery, JS for Bootstrap  -->
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>

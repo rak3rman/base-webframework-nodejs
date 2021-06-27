@@ -1,122 +1,86 @@
-/*\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
-App/Filename : BASE/app.js
-Description  : Initializes nodejs
-Author       : RAk3rman
-\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\*/
+/*\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
+Filename : base/app.js
+Desc     : main application file
+Author(s): RAk3rman
+\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\*/
 
-//===================================================//
-//     --- Initialize Packages and Routers ---       //
-//===================================================//
+// Packages and configuration - - - - - - - - - - - - - - - - - - - - - - - - -
 
-//Declare Packages
-let express = require('express');
-let session = require('express-session');
-let morgan = require('morgan');
-let createError = require('http-errors');
-let cookieParser = require('cookie-parser');
-let bodyParser = require('body-parser');
-let ip = require('ip');
-let uuidv4 = require('uuid/v4');
+// Declare packages
+const path = require('path');
+const dataStore = require('data-store');
+const config_storage = new dataStore({path: './config/config.json'});
+const chalk = require('chalk');
+const pkg = require('./package.json');
+const moment = require('moment');
+const wipe = chalk.white;
 
-//Setup Local Database
-let dataStore = require('data-store');
-let storage = new dataStore({path: './config/sysConfig.json'});
+// Print header to console
+console.clear();
+console.log(chalk.blue.bold('\nBase Webframework v' + pkg.version + ((process.argv[2] !== undefined) ? ' | ' + process.argv[2].toUpperCase() : "" )));
+console.log(chalk.white('--> Contributors: ' + pkg.author));
+console.log(chalk.white('--> Description: ' + pkg.description));
+console.log(chalk.white('--> Github: ' + pkg.homepage + '\n'));
 
-//System Config Checks - - - - - - - - - - - - - - - - -
-//Session Secret Check
-let session_secret = storage.get('session_secret');
-if (session_secret === undefined) {
-    let newSecret = uuidv4();
-    storage.set('session_secret', newSecret);
-    console.log('Config Manager: Session Secret Set - ' + newSecret);
-}
-//Console Port Check
-let console_port = storage.get('console_port');
-if (console_port === undefined) {
-    storage.set('console_port', 3000);
-    console.log('Config Manager: Port Set to DEFAULT: 3000');
-}
-//End of System Config Checks - - - - - - - - - - - - - -
+// Check configuration values
+let setup = require('./config/setup.js');
+setup.check_values(config_storage);
 
-//Declare App
-const app = express();
-app.set('view engine', 'ejs');
+// End of Packages and configuration - - - - - - - - - - - - - - - - - - - - - -
 
-//Initialize Exit Options (for Testing Environments)
-let exitOpt = require('./config/exitOpt.js');
-setTimeout(exitOpt.testCheck, 3000);
+// Fastify and main functions - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-//Routers
-let mainRoutes = require('./routes/mainRoutes.js');
+// Declare fastify
+const fastify = require('fastify')({logger: false});
 
-//Express Processes/Packages Setup
-app.use(session({
-    secret: storage.get('session_secret'),
-    resave: true,
-    saveUninitialized: true
-}));
-app.use(cookieParser());
-app.use(bodyParser.urlencoded({extended: true}));
-app.use(bodyParser.json());
-app.use(morgan('dev'));
-app.use(express.json());
-app.use(express.urlencoded({extended: false}));
+// Prepare rendering template
+fastify.register(require('point-of-view'), {
+    engine: {
+        handlebars: require('handlebars')
+    },
+})
+fastify.register(require('fastify-static'), {
+    root: path.join(__dirname, 'public'),
+    prefix: '/public/',
+})
+// fastify.register(require('fastify-socket.io'), {})
+// fastify.register(require('fastify-formbody'))
+// fastify.register(require('fastify-rate-limit'), {
+//     global: false,
+//     max: 250,
+//     timeWindow: '1 minute'
+// })
 
-//Import Static Files to Webpages
-app.use('/static', express.static(process.cwd() + '/static'));
+// Routers
+let error_routes = require('./routes/error-routes.js');
 
-//End of Initialize Packages and Routers - - - - - - - -
+// Import routes
+error_routes(fastify);
 
+// Home page
+fastify.get('/', (req, reply) => {
+    reply.view('/templates/home.hbs', {
+        title: "Home"
+    })
+    console.log(wipe(`${chalk.bold.magenta('Fastify')}: [` + moment().format('MM/DD/YY-HH:mm:ss') + `] GET /`));
+})
 
-//===================================================//
-//       --- LEMAgent Config Routes/Logic  ---       //
-//===================================================//
-
-//Create Routes
-app.get('/', mainRoutes.homeRoute);
-
-//End of LEMAgent Config Routes/Logic - - - - - - - - -
+// End of Fastify and main functions - - - - - - - - - - - - - - - - - - - - - -
 
 
-//===================================================//
-//              --- Error Handlers ---               //
-//===================================================//
+// Setup external connections - - - - - - - - - - - - - - - - - - - - - - - - -
 
-//404 - Send to Error Handler
-app.use(function (req, res, next) {
-    next(createError(404));
-});
+// Start webserver using config values
+console.log(wipe(`${chalk.bold.magenta('Fastify')}: [` + moment().format('MM/DD/YY-HH:mm:ss') + `] Attempting to start http webserver on port ` + config_storage.get('webserver_port')));
+fastify.listen(config_storage.get('webserver_port'), function (err) {
+    if (err) {
+        fastify.log.error(err)
+        process.exit(1)
+    }
+    console.log(wipe(`${chalk.bold.magenta('Fastify')}: [` + moment().format('MM/DD/YY-HH:mm:ss') + `] Running http webserver on port ` + config_storage.get('webserver_port')));
+    // Check if we are testing
+    const testing = require('./config/testing.js');
+    testing.testCheck();
+})
 
-// Error Handler Logic
-app.use(function (err, req, res, next) {
-    //Determine Message
-    res.locals.message = err.message;
-    res.locals.error = req.app.get('env') === 'development' ? err : {};
-    //Render Error Page
-    res.status(err.status || 500);
-    res.render('pages/error.ejs', {title: 'Error'});
-});
-
-//End of Error Handler - - - - - - - - - - - - - - - - -
-
-
-//===================================================//
-//        --- External Connections Setup ---         //
-//===================================================//
-
-//Port Listen
-let http = require('http');
-let server = http.createServer(app);
-server.listen(storage.get('console_port'), function () {
-    console.log(' ');
-    console.log('============================================');
-    console.log('  Base-WebFramework-NodeJS | RAk3rman 2019  ');
-    console.log('============================================');
-    console.log('Web Page Accessable at: ' + ip.address() + ":" + storage.get('console_port'));
-    console.log(' ');
-});
-
-//End of External Connections Setup - - - - - - - - - -
-
-//Export Express
-module.exports = app;
+// End of Setup external connections - - - - - - - - - - - - - - - - - - - - - -
